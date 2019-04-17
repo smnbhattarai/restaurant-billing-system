@@ -18,3 +18,10 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', 'HomeController@index')->name('home');
+
+Route::prefix('restro')->middleware('auth')->group(function() {
+    Route::resource('menu', 'MenuController');
+    Route::resource('bill', 'BillController');
+    Route::post('menu/suggestion', "MenuController@getSuggestion")->name("menu.suggestion");
+    Route::post('bill/suggestion', "BillController@getSuggestion")->name("bill.suggestion");
+});
