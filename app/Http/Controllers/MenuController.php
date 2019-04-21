@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Menu;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\File;
 
 class MenuController extends Controller
 {
@@ -85,7 +86,8 @@ class MenuController extends Controller
      */
     public function edit($id)
     {
-        //
+        $menu_item = Menu::findOrFail($id);
+        return view('menu.edit')->with('menu_item', $menu_item);
     }
 
     /**
@@ -97,7 +99,32 @@ class MenuController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $this->validate($request, [
+            'name' => 'required',
+            'price' => 'required|numeric',
+            'item_photo' => 'filled|mimes:jpeg,png|max:2048',
+        ]);
+
+        $menu = Menu::findOrFail($id);
+        $menu->name = $request->name;
+        $menu->price = $request->price;
+
+        if($request->hasFile('item_photo')) {
+            $image = $request->file('item_photo');
+            $img_name = time() . '-' . $this->get_random_menu_item_code() . '.' . $image->getClientOriginalExtension();
+            $destination = public_path('images');
+            $image->move($destination, $img_name);
+            $menu->item_photo = $img_name;
+            File::delete('images/' . $request->item_photo);
+        }
+
+        if($menu->save()) {
+            Session::flash('success', 'Menu item updated successfully.');
+            return redirect()->route('menu.index');
+        } else {
+            Session::flash('error', 'Something went wrong. Please try again.');
+            return redirect()->back();
+        }
     }
 
     /**
@@ -108,7 +135,14 @@ class MenuController extends Controller
      */
     public function destroy($id)
     {
-        //
+        $item = Menu::findOrFail($id);
+        if($item->delete()) {
+            File::delete('images/' . $item->item_photo);
+            Session::flash('success', 'Menu Item deleted successfully.');
+        } else {
+            Session::flash('error', 'Error: Failed to delete menu item.');
+        }
+        return redirect()->back();
     }
 
 
@@ -123,5 +157,16 @@ class MenuController extends Controller
             $out .= $string[rand(0, $length - 1)];
         }
         return $out;
+    }
+
+
+    /**
+     * @param Request $request
+     * @return
+     */
+    public function getSuggestion(Request $request) {
+        $input = $request->menu_item;
+        $related_item = Menu::where('name', 'like', '%' . $input . '%')->get();
+        return response()->json($related_item);
     }
 }
